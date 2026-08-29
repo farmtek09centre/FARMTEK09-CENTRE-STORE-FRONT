@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FARMTEK09 CENTRE — Order on WhatsApp</title>
+<meta name="description" content="Farmtek09 Centre — premium TC bananas, grafted fruit trees and seedlings in Lower Kabete. Order on WhatsApp, pay via M-Pesa.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand">FARMTEK09 CENTRE</span>
+      <a class="topbar-whatsapp" id="topbarWhatsapp" href="#" target="_blank" rel="noopener"></a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <p class="eyebrow">Order on WhatsApp</p>
+        <h1>Premium TC bananas, grafted fruit trees &amp; seedlings.</h1>
+        <p class="hero-sub">Browse our seedlings below. Tap any item to send an order straight to WhatsApp, or visit us in Lower Kabete to see the nursery yourself.</p>
+        <div class="hero-actions">
+          <a href="#catalogue" class="btn btn-primary">Browse the seedlings</a>
+          <a href="#" id="heroWhatsapp" class="btn btn-whatsapp" target="_blank" rel="noopener">Chat with us</a>
+        </div>
+      </div>
+      <div class="hero-shelf" aria-hidden="true">
+        <div class="shelf-track" id="shelfTrack"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="info-panels">
+    <div class="info-card">
+      <div class="info-card-head">
+        <div class="info-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 22s7-7.4 7-12.5A7 7 0 0 0 5 9.5C5 14.6 12 22 12 22Z"/><circle cx="12" cy="9.5" r="2.3"/></svg>
+        </div>
+        <h3>Visit the Nursery</h3>
+      </div>
+      <iframe id="mapFrame" class="map-frame" src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Farmtek09 Centre location"></iframe>
+      <p class="location-line"><strong class="js-location-name"></strong></p>
+      <p class="hours-line js-hours"></p>
+      <div class="location-actions">
+        <a id="directionsLink" class="btn btn-secondary" href="#" target="_blank" rel="noopener">Get Directions</a>
+        <a id="locationWhatsapp" class="btn btn-whatsapp" href="#" target="_blank" rel="noopener">Ask on WhatsApp</a>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-head">
+        <div class="info-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/><path d="M9.5 6h5"/></svg>
+        </div>
+        <h3>Pay via M-Pesa</h3>
+      </div>
+      <p class="pay-note" style="margin-top:0;">Lipa na M-Pesa → Pay Bill (Co-operative Bank)</p>
+      <div class="pay-field">
+        <span class="pay-field-text">Business No.<span class="pay-value js-paybill-business"></span></span>
+        <button class="btn btn-copy" type="button" data-copy="400200">Copy</button>
+      </div>
+      <div class="pay-field">
+        <span class="pay-field-text">Account No.<span class="pay-value js-paybill-account"></span></span>
+        <button class="btn btn-copy" type="button" data-copy="54095">Copy</button>
+      </div>
+      <p class="pay-note">Account name: <strong class="js-store-name"></strong> — use the button below for an M-PESA payment prompt.</p>
+      <button id="payNowButton" class="btn btn-primary pay-now-btn" type="button">Pay via M-PESA</button>
+      <div id="mpesaPaymentPanel" class="mpesa-panel" hidden>
+        <label for="mpesaPhone">M-PESA phone number</label>
+        <input id="mpesaPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="0712 345 678" maxlength="13">
+        <label for="mpesaAmount">Amount (KES)</label>
+        <input id="mpesaAmount" type="number" inputmode="numeric" min="1" step="1" placeholder="Amount">
+        <label for="mpesaReference">Account / order reference</label>
+        <input id="mpesaReference" type="text" maxlength="12" value="FARMTEK09" placeholder="FARMTEK09">
+        <button id="mpesaSubmit" class="btn btn-primary" type="button">Send M-PESA prompt</button>
+        <p id="mpesaStatus" class="mpesa-status" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </section>
+
+  <main class="catalogue" id="catalogue">
+    <div class="controls">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="searchInput" type="search" placeholder="Search seedlings…" aria-label="Search products">
+      </div>
+      <div class="pills" id="categoryPills"></div>
+    </div>
+
+    <p class="result-count" id="resultCount"></p>
+    <div class="grid" id="productGrid"></div>
+
+    <div class="empty-state" id="emptyState" hidden>
+      <p>No products match "<span id="emptyQuery"></span>".</p>
+      <button id="clearFilters" class="btn btn-secondary">Clear filters</button>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p><span class="js-store-name"></span> · <span class="js-location-name"></span></p>
+    <p>Order or ask a question on WhatsApp: <a id="footerWhatsapp" href="#">0725 528 888</a></p>
+    <p>Also reachable on 0725 679 016</p>
+    <p>farmtek09centre@gmail.com · bakaryfarm@gmail.com</p>
+    <p class="fine-print">Prices shown in Kenyan Shillings (KES). Final availability is confirmed on WhatsApp.</p>
+  </footer>
+
+  <a href="#" id="floatingWhatsapp" class="floating-whatsapp" target="_blank" rel="noopener" aria-label="Chat with us on WhatsApp"></a>
+
+  <script src="app.js"></script>
+</body>
+</html>

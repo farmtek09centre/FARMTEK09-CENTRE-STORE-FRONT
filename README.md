@@ -1,108 +1,125 @@
-# FARMTEK09 CENTRE — WhatsApp + Lipa na M-PESA (Daraja STK Push)
+# Jumia-style Cart Component
 
-This version has **no shopping cart**. Customers can order through WhatsApp and, where a price is known, start a **Lipa na M-PESA PayBill STK Push** directly from the website.
+Two files, no dependencies, no build step: `cart.css` + `cart.js`.
+Gives you the pattern from jumia.co.ke — a qty stepper on each product
+card, a floating cart button with a count badge, a slide-in cart
+drawer with subtotal, and a "Checkout via WhatsApp" button that opens
+a prefilled order message.
 
-## Daraja endpoint integrated
+This is original code written to match that UX pattern — not copied
+from Jumia's site.
 
-The supplied Safaricom Postman collection confirms the sandbox STK Push request as:
+## 1. Link the files
 
-```text
-POST https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest
+```html
+<link rel="stylesheet" href="cart.css">
+...
+<script src="cart.js" defer></script>
 ```
 
-It uses Bearer authentication and the fields `BusinessShortCode`, `Password`, `Timestamp`, `TransactionType`, `Amount`, `PartyA`, `PartyB`, `PhoneNumber`, `CallBackURL`, `AccountReference`, and `TransactionDesc`. The supplied collection uses `CustomerPayBillOnline` as the transaction type example and `174379` as the sandbox shortcode example. fileciteturn0file0L1696-L1724
+## 2. Initialize once per page (bottom of `<body>` or in your own script)
 
-## What is included
+### FARMTEK09 CENTRE
 
-- M-PESA payment form in the Pay via M-Pesa section.
-- Product-level **Pay via M-PESA** buttons for priced products.
-- Kenyan phone-number validation.
-- Daraja OAuth access-token generation.
-- Daraja sandbox STK Push integration.
-- Safaricom callback endpoint.
-- Payment-status polling for the customer.
-- M-PESA credentials kept on the server, not browser JavaScript.
-- No shopping cart.
-
-## Important: sandbox shortcode vs business PayBill
-
-Your storefront currently displays **400200 / 54095** as the manual PayBill details. That does not automatically mean the Daraja sandbox STK Push should use 400200. The Daraja collection supplied with this project uses **174379** as its example sandbox STK shortcode. Configure `MPESA_SHORTCODE` to the shortcode assigned to your own Daraja app.
-
-The website can continue displaying your normal customer-facing PayBill details while the backend uses the correct shortcode for the Daraja environment. Before production, confirm the shortcode and settlement setup with Safaricom/the acquiring institution.
-
-## 1. Configure Daraja
-
-Create/select your Daraja application and obtain:
-
-- Consumer Key
-- Consumer Secret
-- Lipa na M-PESA Online Passkey
-
-The official Safaricom Daraja portal provides the API platform and app onboarding. citeturn134817search0turn134817search3
-
-## 2. Configure `.env`
-
-Copy `.env.example` to `.env` and fill the values:
-
-```env
-MPESA_CONSUMER_KEY=s6CR0XNEvhFd8BJqDGMV0KSagm4GlMV2nco7xyLjo4ixwYGn
-MPESA_CONSUMER_SECRET=zeSmJ3oAvthBeT2WlRUyyF2mVGHmMhd4LZDpf18U6oRLa1enjGH3BayiKljuKNWK
-MPESA_PASSKEY=your_passkey
-MPESA_ENV=sandbox
-MPESA_SHORTCODE=174379
-MPESA_CALLBACK_BASE_URL=https://your-public-https-backend.example.com
-FRONTEND_ORIGIN=http://localhost:3000
-PORT=3000
+```html
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    StoreCart.init({
+      businessName: "FARMTEK09 CENTRE",
+      whatsappNumber: "254725528888",
+      currency: "KSh",
+      paymentInstructions:
+        "Pay via Co-op Bank Lipa na M-Pesa – Business No. 400200, " +
+        "Account No. 54095 (FARMTEK09 CENTRE), then send the M-Pesa " +
+        "confirmation message here."
+    });
+  });
+</script>
 ```
 
-Do **not** commit `.env` to GitHub.
+### TIFFAS BEAUTY AND COSMETICS
 
-## 3. Run
-
-Requires Node.js 20+.
-
-```bash
-npm install
-npm start
+```html
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    StoreCart.init({
+      businessName: "TIFFAS BEAUTY AND COSMETICS",
+      whatsappNumber: "254725679016",
+      currency: "KSh",
+      paymentInstructions:
+        "Pay via M-Pesa Till Number 8049446, then send the M-Pesa " +
+        "confirmation message here."
+    });
+  });
+  // Override the accent color to purple for this store:
+  document.documentElement.style.setProperty("--cart-accent", "#7b2ff7");
+  document.documentElement.style.setProperty("--cart-accent-dark", "#611fc2");
+</script>
 ```
 
-Open:
+## 3. Wire up each product card
 
-```text
-http://localhost:3000
+For every product on the page, call `attachControls` once its card
+element exists in the DOM:
+
+```html
+<div class="product-card" id="card-avocado">
+  <img src="images/avocado.jpg" alt="Grafted Avocado Seedling">
+  <h3>Grafted Avocado Seedling</h3>
+  <p>KSh 350</p>
+  <!-- StoreCart injects the Add to Cart button / qty stepper here -->
+</div>
+
+<script>
+  StoreCart.attachControls(document.getElementById("card-avocado"), {
+    id: "avocado-seedling",       // unique per product
+    name: "Grafted Avocado Seedling",
+    price: 350,
+    image: "images/avocado.jpg"   // optional
+  });
+</script>
 ```
 
-## 4. Callback requirement
-
-The callback is:
-
-```text
-POST https://YOUR-PUBLIC-HTTPS-BACKEND.example.com/api/mpesa/callback
-```
-
-Safaricom needs to reach this URL over the public internet. A localhost URL will not receive the callback.
-
-## 5. Frontend/backend on separate hosts
-
-If your website is hosted separately from the Node backend, set this in `app.js`:
+If your products come from a JS array (e.g. loaded from JSON), loop
+over it after rendering the cards:
 
 ```js
-const MPESA_API_BASE = "https://api.yourdomain.co.ke";
+products.forEach(p => {
+  const card = document.getElementById(`card-${p.id}`);
+  StoreCart.attachControls(card, p);
+});
 ```
 
-Then set `FRONTEND_ORIGIN` in the backend `.env` to the actual website origin.
+## What happens at checkout
 
-## 6. Payment flow
+The customer taps the floating cart icon → reviews items in the
+drawer → taps "Checkout via WhatsApp". This opens WhatsApp with a
+message like:
 
-1. Customer clicks **Pay via M-PESA**.
-2. Customer enters their M-PESA number and amount.
-3. Browser sends the details to `/api/mpesa/stk-push`.
-4. Backend gets an OAuth token from Daraja.
-5. Backend POSTs the STK request to the Safaricom sandbox endpoint.
-6. Customer receives the STK prompt and enters their PIN.
-7. Safaricom calls `/api/mpesa/callback`.
-8. Website polls the transaction status endpoint and displays success/failure.
+```
+Order from FARMTEK09 CENTRE:
 
-## Production
+1. Grafted Avocado Seedling x2 — KSh 700
+2. Passion Fruit Seedling x1 — KSh 150
 
-Use production Daraja credentials and the production endpoint only after your Daraja application is approved/go-live. Replace the in-memory transaction store with a database before relying on it for real order records.
+Subtotal: KSh 850
+
+Pay via Co-op Bank Lipa na M-Pesa – Business No. 400200, Account No.
+54095 (FARMTEK09 CENTRE), then send the M-Pesa confirmation message
+here.
+```
+
+The customer sends it to your WhatsApp number, and you take it from
+there — same manual flow you already have, just with a proper cart
+in front of it.
+
+## Notes
+
+- Cart contents persist for the tab (sessionStorage) so a reload
+  mid-browse doesn't lose the cart, but it clears when the tab
+  closes.
+- Colors are CSS variables (`--cart-accent`, `--cart-accent-dark`)
+  on `:root` — override per store as shown above instead of editing
+  `cart.css`.
+- No framework, no npm install — works as-is inside a plain
+  GitHub Pages HTML/CSS/JS site.

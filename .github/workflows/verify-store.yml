@@ -17,29 +17,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install dependencies
+        run: npm ci
       - name: Check JavaScript syntax
         run: |
           node --check server.js
           node --check app.js
           node --check checkout.js
           node --check admin.js
-      - name: Validate JSON data
-        run: |
-          node -e "const fs=require('fs'); for(const f of ['package.json','data/catalogue.json','data/orders.json']) JSON.parse(fs.readFileSync(f,'utf8')); console.log('JSON OK')"
-      - name: Check effective catalogue IDs
-        run: |
-          node - <<'NODE'
-          const fs = require('fs');
-          const products = JSON.parse(fs.readFileSync('data/catalogue.json','utf8'));
-          const overrideIds = new Set(['apple-mango-source','lemon-source','grafted-pixie-orange']);
-          const effective = products.filter((p) => !overrideIds.has(p.id));
-          const ids = new Set();
-          for (const p of effective) {
-            if (ids.has(p.id)) throw new Error(`Duplicate effective product id: ${p.id}`);
-            ids.add(p.id);
-          }
-          for (const required of ['apple-grafted-mango','hass-grafted-avocado','pixie-tangerine','lemon-tree-seedling']) {
-            if (!ids.has(required)) throw new Error(`Missing FARMTEK09 catalogue entry: ${required}`);
-          }
-          console.log(`Effective catalogue contains ${effective.length} unique products.`);
-          NODE
+      - name: Validate store data
+        run: npm run check

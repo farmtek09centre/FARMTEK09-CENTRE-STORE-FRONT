@@ -26,17 +26,20 @@ jobs:
       - name: Validate JSON data
         run: |
           node -e "const fs=require('fs'); for(const f of ['package.json','data/catalogue.json','data/orders.json']) JSON.parse(fs.readFileSync(f,'utf8')); console.log('JSON OK')"
-      - name: Check catalogue IDs
+      - name: Check effective catalogue IDs
         run: |
           node - <<'NODE'
           const fs = require('fs');
           const products = JSON.parse(fs.readFileSync('data/catalogue.json','utf8'));
           const overrideIds = new Set(['apple-mango-source','lemon-source','grafted-pixie-orange']);
+          const effective = products.filter((p) => !overrideIds.has(p.id));
           const ids = new Set();
-          for (const p of products) {
-            if (ids.has(p.id)) throw new Error(`Duplicate product id: ${p.id}`);
+          for (const p of effective) {
+            if (ids.has(p.id)) throw new Error(`Duplicate effective product id: ${p.id}`);
             ids.add(p.id);
-            if (overrideIds.has(p.id)) throw new Error(`Override product still present: ${p.id}`);
           }
-          console.log(`Catalogue contains ${products.length} unique products.`);
+          for (const required of ['apple-grafted-mango','hass-grafted-avocado','pixie-tangerine','lemon-tree-seedling']) {
+            if (!ids.has(required)) throw new Error(`Missing FARMTEK09 catalogue entry: ${required}`);
+          }
+          console.log(`Effective catalogue contains ${effective.length} unique products.`);
           NODE

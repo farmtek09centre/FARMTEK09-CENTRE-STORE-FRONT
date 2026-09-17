@@ -1,0 +1,42 @@
+name: Verify FARMTEK09 store
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check JavaScript syntax
+        run: |
+          node --check server.js
+          node --check app.js
+          node --check checkout.js
+          node --check admin.js
+      - name: Validate JSON data
+        run: |
+          node -e "const fs=require('fs'); for(const f of ['package.json','data/catalogue.json','data/orders.json']) JSON.parse(fs.readFileSync(f,'utf8')); console.log('JSON OK')"
+      - name: Check catalogue IDs
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const products = JSON.parse(fs.readFileSync('data/catalogue.json','utf8'));
+          const overrideIds = new Set(['apple-mango-source','lemon-source','grafted-pixie-orange']);
+          const ids = new Set();
+          for (const p of products) {
+            if (ids.has(p.id)) throw new Error(`Duplicate product id: ${p.id}`);
+            ids.add(p.id);
+            if (overrideIds.has(p.id)) throw new Error(`Override product still present: ${p.id}`);
+          }
+          console.log(`Catalogue contains ${products.length} unique products.`);
+          NODE

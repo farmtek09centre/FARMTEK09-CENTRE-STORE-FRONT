@@ -7,7 +7,19 @@
 <meta name="description" content="FARMTEK09 CENTRE — TC bananas, grafted fruit trees, seedlings, nursery supplies, garden equipment and farm tools. Add to cart, order on WhatsApp or pay by M-PESA.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20260917-2">
+<style>
+@media (max-width: 520px){
+  .catalogue{padding-left:.9rem;padding-right:.9rem}
+  .controls-row{flex-direction:column;align-items:stretch}
+  .controls-row .search-wrap{min-width:0;max-width:none;width:100%}
+  #sortSelect{max-width:none;width:100%}
+  .grid{grid-template-columns:1fr;gap:1rem}
+  .topbar-inner{padding-left:.9rem;padding-right:.9rem}
+  .brand{font-size:1rem}
+  .pill{font-size:.76rem;padding:.45rem .8rem}
+}
+</style>
 </head>
 <body>
 <header class="topbar"><div class="topbar-inner"><a class="brand" href="#top">FARMTEK09 CENTRE</a><div class="topbar-actions"><a class="topbar-whatsapp" id="topbarWhatsapp" href="#" target="_blank" rel="noopener">WhatsApp</a><button class="cart-button" id="cartOpenButton" type="button" aria-label="Open shopping cart"><span>Cart</span><strong id="cartCount">0</strong></button></div></div></header>
@@ -19,6 +31,6 @@
 <footer class="site-footer"><p><span class="js-store-name"></span> · <span class="js-location-name"></span></p><p>Order or ask a question on WhatsApp: <a id="footerWhatsapp" href="#">0725 528 888</a></p><p>Also reachable on 0725 679 016</p><p>farmtek09centre@gmail.com · bakaryfarm@gmail.com</p><p class="fine-print">Prices shown in Kenyan Shillings (KES). Stock quantities are maintained from the admin dashboard. Delivery charges are confirmed at checkout when not configured as a flat rate.</p></footer>
 <a href="#" id="floatingWhatsapp" class="floating-whatsapp" target="_blank" rel="noopener" aria-label="Chat with us on WhatsApp">WhatsApp</a>
 <div class="product-modal" id="productModal" hidden><div class="modal-backdrop" data-close-modal></div><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalProductName"><button class="modal-close" id="modalClose" type="button" aria-label="Close product details">×</button><div id="modalProductContent"></div></div></div>
-<script src="storefront-sync.js"></script><script src="app.js"></script><script src="checkout.js"></script>
+<script src="app.js?v=20260917-2"></script><script src="checkout.js?v=20260917-2"></script>
 </body>
 </html>

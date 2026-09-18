@@ -53,7 +53,7 @@ Run the automated checks with:
 npm run check
 ```
 
-The backend writes orders to `data/orders.json` and maintains the catalogue in `data/catalogue.json`.
+The backend stores orders in `data/orders.json` and maintains the live catalogue in `data/catalogue.json`. Because Render web-service storage is ephemeral on the Free plan, admin catalogue changes are also committed back to GitHub. The GitHub file is therefore the permanent catalogue source, and Render automatically redeploys from each catalogue commit. Set `GITHUB_TOKEN`, `GITHUB_REPO`, and `GITHUB_BRANCH` in Render; use a fine-grained GitHub token limited to this repository with Contents: Read and write permission. Orders remain file-based for now and should move to a database later.
 
 ## M-PESA
 

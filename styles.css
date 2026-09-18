@@ -122,3 +122,120 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; margin: 0; colo
 @media(max-width:700px){.modal-product-grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.topbar-whatsapp{display:none}.hero-actions .btn{width:100%}.card-actions{grid-template-columns:1fr}.featured-grid{grid-template-columns:1fr}.featured-card{grid-template-columns:80px 1fr}}
 @media(prefers-reduced-motion:reduce){.shelf-track{animation:none}}
 .load-error{grid-column:1/-1;margin:0;padding:2rem;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--paper);color:var(--ink-500);text-align:center}
+
+
+/* Mobile scroll / browsing improvements */
+html {
+  scroll-padding-top: 70px;
+}
+#catalogue {
+  scroll-margin-top: 170px;
+}
+.card {
+  content-visibility: auto;
+  contain-intrinsic-size: 420px;
+}
+@media (max-width: 700px) {
+  body {
+    overflow-x: hidden;
+  }
+  .hero-shelf {
+    touch-action: pan-y;
+    pointer-events: none;
+  }
+  .controls {
+    top: 56px;
+    padding: 0.65rem 0 0.8rem;
+    gap: 0.65rem;
+    box-shadow: 0 8px 18px -18px rgba(15, 46, 31, 0.55);
+  }
+  .controls-row {
+    gap: 0.6rem;
+  }
+  .controls-row .search-wrap {
+    min-width: 0;
+    width: 100%;
+  }
+  #searchInput,
+  #sortSelect {
+    min-height: 46px;
+  }
+  #sortSelect {
+    max-width: none;
+  }
+  .pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.1rem 0.05rem 0.25rem;
+    gap: 0.5rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+  }
+  .pills::-webkit-scrollbar {
+    display: none;
+  }
+  .pill {
+    flex: 0 0 auto;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    scroll-snap-align: start;
+  }
+  .result-count {
+    margin-top: 0.7rem;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .card {
+    content-visibility: auto;
+    contain-intrinsic-size: 430px;
+    border-radius: 18px;
+  }
+  .card-media {
+    aspect-ratio: 4 / 3;
+    min-height: 180px;
+    max-height: 260px;
+  }
+  .card-blurb {
+    display: none;
+  }
+  .card-body {
+    padding: 0.9rem 0.95rem 1rem;
+    gap: 0.5rem;
+  }
+  .card-name {
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+  .card-actions {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem;
+  }
+  .card-actions .btn {
+    min-height: 44px;
+    padding: 0.65rem 0.55rem;
+  }
+  .card-whatsapp {
+    display: block;
+    padding-top: 0.15rem;
+  }
+  .featured-section {
+    padding-top: 1.5rem;
+  }
+}
+@media (max-width: 380px) {
+  #catalogue {
+    scroll-margin-top: 155px;
+  }
+  .card-actions {
+    grid-template-columns: 1fr;
+  }
+  .card-media {
+    max-height: 230px;
+  }
+}

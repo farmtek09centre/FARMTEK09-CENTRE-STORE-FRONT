@@ -23,6 +23,7 @@ let products = [];
 let activeCategory = "All";
 let searchTerm = "";
 let sortMode = "featured";
+let catalogueVersion = "";
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -148,12 +149,51 @@ function applyBranding() {
 }
 
 async function loadCatalogue() {
+  const cacheBust = Date.now();
   try {
-    const apiResponse = await fetch("/api/catalogue", { headers: { Accept: "application/json" } });
+    const apiResponse = await fetch(`/api/catalogue?ts=${cacheBust}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" }
+    });
     if (apiResponse.ok) return await apiResponse.json();
   } catch (_) {}
-  const fallback = await fetch("data/catalogue.json");
+  const fallback = await fetch(`data/catalogue.json?ts=${cacheBust}`, { cache: "no-store" });
   return fallback.json();
+}
+
+async function readCatalogueVersion() {
+  const response = await fetch(`/api/catalogue-version?ts=${Date.now()}`, {
+    cache: "no-store",
+    headers: { Accept: "application/json" }
+  });
+  if (!response.ok) throw new Error("Catalogue version unavailable.");
+  const data = await response.json();
+  return String(data.version || "");
+}
+
+async function syncCatalogue() {
+  if (document.hidden) return;
+  try {
+    const nextVersion = await readCatalogueVersion();
+    if (!catalogueVersion) {
+      catalogueVersion = nextVersion;
+      return;
+    }
+    if (!nextVersion || nextVersion === catalogueVersion) return;
+
+    const latest = await loadCatalogue();
+    if (!Array.isArray(latest)) return;
+    products = latest;
+    catalogueVersion = nextVersion;
+    window.__FARMTEK09_PRODUCTS__ = products;
+    renderCategories();
+    renderFeatured();
+    renderShelf();
+    renderProducts();
+    document.dispatchEvent(new CustomEvent("catalogue:updated", { detail: products }));
+  } catch (error) {
+    console.debug("Catalogue sync check failed.", error);
+  }
 }
 
 function wireStaticControls() {
@@ -195,5 +235,10 @@ async function init() {
     $("resultCount").textContent = "Catalogue unavailable";
   }
 }
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) syncCatalogue();
+});
+setInterval(syncCatalogue, 30000);
 
 document.addEventListener("DOMContentLoaded", init);

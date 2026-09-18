@@ -21,6 +21,11 @@ const PAYBILL_BUSINESS = String(process.env.PAYBILL_BUSINESS || "400200").trim()
 const PAYBILL_ACCOUNT = String(process.env.PAYBILL_ACCOUNT || "54095").trim();
 const DELIVERY_FLAT_FEE = process.env.DELIVERY_FLAT_FEE_KES === "" || process.env.DELIVERY_FLAT_FEE_KES == null ? null : Number(process.env.DELIVERY_FLAT_FEE_KES);
 const SOURCE_OVERRIDE_IDS = new Set(["apple-mango-source", "lemon-source", "grafted-pixie-orange"]);
+const GITHUB_TOKEN = String(process.env.GITHUB_TOKEN || "").trim();
+const GITHUB_REPO = String(process.env.GITHUB_REPO || "farmtek09centre/FARMTEK09CENTRE").trim();
+const GITHUB_BRANCH = String(process.env.GITHUB_BRANCH || "feat/catalogue-admin-storefront-v2").trim();
+const GITHUB_FILE_PATH = "data/catalogue.json";
+let catalogueCommitChain = Promise.resolve();
 
 const adminSessions = new Map();
 const transactions = new Map();
@@ -28,6 +33,7 @@ const transactions = new Map();
 if (!process.env.MPESA_CONSUMER_KEY || !process.env.MPESA_CONSUMER_SECRET || !process.env.MPESA_PASSKEY || !SHORTCODE) console.warn("M-PESA credentials are missing. Add them to .env before making payments.");
 if (!CALLBACK_BASE_URL) console.warn("MPESA_CALLBACK_BASE_URL is missing. Safaricom requires a publicly reachable callback URL.");
 if (!ADMIN_PASSWORD) console.warn("ADMIN_PASSWORD is missing. Admin API login will be unavailable.");
+if (!GITHUB_TOKEN) console.warn("GITHUB_TOKEN is missing. Admin catalogue changes will not be permanently stored until it is added to Render.");
 
 app.use(cors({ origin: process.env.FRONTEND_ORIGIN || true }));
 app.use(express.json({ limit: "250kb" }));
@@ -46,7 +52,56 @@ async function readCatalogue() {
   const products = await readJson(CATALOGUE_FILE, []);
   return Array.isArray(products) ? products.filter((product) => !SOURCE_OVERRIDE_IDS.has(product.id)) : [];
 }
-const writeCatalogue = (products) => writeJson(CATALOGUE_FILE, products.filter((product) => !SOURCE_OVERRIDE_IDS.has(product.id)));
+async function commitCatalogueToGitHub(products, reason = "Update live catalogue") {
+  if (!GITHUB_TOKEN) throw new Error("Permanent catalogue storage is not configured yet. Add GITHUB_TOKEN to Render.");
+  const cleanProducts = products.filter((product) => !SOURCE_OVERRIDE_IDS.has(product.id));
+  const content = JSON.stringify(cleanProducts, null, 2) + "\n";
+  const bytes = Buffer.byteLength(content, "utf8");
+  if (bytes > 900000) throw new Error("Catalogue is too large for the current free GitHub-backed storage. Please use image URLs instead of uploading more photos.");
+  const run = async () => {
+    const parts = GITHUB_REPO.split("/");
+    if (parts.length !== 2 || !parts[0] || !parts[1]) throw new Error("GITHUB_REPO must use owner/repository format.");
+    const headers = {
+      Accept: "application/vnd.github+json",
+      Authorization: "Bearer " + GITHUB_TOKEN,
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "FARMTEK09-CENTRE"
+    };
+    const fileUrl = "https://api.github.com/repos/" + encodeURIComponent(parts[0]) + "/" + encodeURIComponent(parts[1]) + "/contents/" + GITHUB_FILE_PATH + "?ref=" + encodeURIComponent(GITHUB_BRANCH);
+    const currentResponse = await fetch(fileUrl, { headers });
+    const currentBody = await currentResponse.text();
+    if (!currentResponse.ok) throw new Error("Could not read the GitHub catalogue (HTTP " + currentResponse.status + ").");
+    let current = {};
+    try { current = JSON.parse(currentBody); } catch { throw new Error("GitHub returned an invalid catalogue response."); }
+    const updateResponse = await fetch(fileUrl, {
+      method: "PUT",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: normalizeText(reason, 120) + " via FARMTEK09 Admin",
+        content: Buffer.from(content, "utf8").toString("base64"),
+        sha: current.sha,
+        branch: GITHUB_BRANCH
+      })
+    });
+    const updateBody = await updateResponse.text();
+    if (!updateResponse.ok) {
+      let detail = "";
+      try { detail = JSON.parse(updateBody)?.message || ""; } catch {}
+      throw new Error(detail ? "GitHub catalogue save failed: " + detail : "GitHub catalogue save failed (HTTP " + updateResponse.status + ").");
+    }
+    let result = {};
+    try { result = JSON.parse(updateBody); } catch {}
+    return { bytes, commit: result?.commit?.sha || null };
+  };
+  const task = catalogueCommitChain.catch(() => {}).then(run);
+  catalogueCommitChain = task;
+  return task;
+}
+async function writeCatalogue(products, reason = "Update live catalogue") {
+  const cleanProducts = products.filter((product) => !SOURCE_OVERRIDE_IDS.has(product.id));
+  await commitCatalogueToGitHub(cleanProducts, reason);
+  await writeJson(CATALOGUE_FILE, cleanProducts);
+}
 const readOrders = () => readJson(ORDERS_FILE, []);
 const writeOrders = (orders) => writeJson(ORDERS_FILE, orders);
 
@@ -104,7 +159,7 @@ async function applySuccessfulPayment(orderId, transaction) {
     }
     order.stockDeducted = true;
   }
-  await writeCatalogue(catalogue); await writeOrders(orders);
+  await writeCatalogue(catalogue, "Stock update after paid order " + order.id); await writeOrders(orders);
 }
 
 app.get("/api/catalogue", async (_req, res) => {
@@ -158,9 +213,9 @@ app.get("/api/orders/:id", async (req, res) => { try { const orders = await read
 
 app.post("/api/admin/login", (req, res) => { const supplied = Buffer.from(String(req.body?.password || "")); const expected = Buffer.from(ADMIN_PASSWORD); const valid = Boolean(ADMIN_PASSWORD) && supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected); if (!valid) return res.status(401).json({ message: "Invalid admin password." }); const token = crypto.randomBytes(32).toString("hex"); adminSessions.set(token, Date.now() + 8*60*60*1000); res.json({ token, expiresInHours: 8 }); });
 app.get("/api/admin/products", adminAuth, async (_req, res) => res.json({ products: await readCatalogue() }));
-app.post("/api/admin/products", adminAuth, async (req, res) => { try { const p = req.body || {}; const products = await readCatalogue(); const id = String(p.id || `${Date.now()}-${String(p.name || "product").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`); if (!p.name || !p.category) return res.status(400).json({ message: "Name and category are required." }); if (SOURCE_OVERRIDE_IDS.has(id)) return res.status(409).json({ message: "That product is reserved for the FARMTEK09 catalogue override." }); if (products.some((x) => x.id === id)) return res.status(409).json({ message: "Product ID already exists." }); const product = { id, name: normalizeText(p.name, 140), category: normalizeText(p.category, 80), price: p.price == null || p.price === "" ? null : Number(p.price), stock: p.stock == null || p.stock === "" ? null : Number(p.stock), blurb: normalizeText(p.blurb, 300), image: normalizeText(p.image, 500), featured: Boolean(p.featured), badge: normalizeText(p.badge, 40) }; if (product.price != null && (!Number.isFinite(product.price) || product.price < 0)) return res.status(400).json({ message: "Price must be a valid number or blank." }); if (product.stock != null && (!Number.isInteger(product.stock) || product.stock < 0)) return res.status(400).json({ message: "Stock must be a whole number or blank." }); products.push(product); await writeCatalogue(products); res.status(201).json(product); } catch (error) { res.status(500).json({ message: error.message || "Unable to save product." }); } });
-app.put("/api/admin/products/:id", adminAuth, async (req, res) => { try { if (SOURCE_OVERRIDE_IDS.has(req.params.id)) return res.status(409).json({ message: "This source duplicate is intentionally overridden by the FARMTEK09 catalogue." }); const products = await readCatalogue(); const i = products.findIndex((x) => x.id === req.params.id); if (i < 0) return res.status(404).json({ message: "Product not found." }); const p = req.body || {}; const next = { ...products[i], name: normalizeText(p.name || products[i].name, 140), category: normalizeText(p.category || products[i].category, 80), price: p.price == null || p.price === "" ? null : Number(p.price), stock: p.stock == null || p.stock === "" ? null : Number(p.stock), blurb: normalizeText(p.blurb ?? products[i].blurb ?? "", 300), image: normalizeText(p.image ?? products[i].image ?? "", 500), featured: p.featured == null ? Boolean(products[i].featured) : Boolean(p.featured), badge: normalizeText(p.badge ?? products[i].badge ?? "", 40) }; if (next.price != null && (!Number.isFinite(next.price) || next.price < 0)) return res.status(400).json({ message: "Price must be a valid number or blank." }); if (next.stock != null && (!Number.isInteger(next.stock) || next.stock < 0)) return res.status(400).json({ message: "Stock must be a whole number or blank." }); products[i] = next; await writeCatalogue(products); res.json(next); } catch (error) { res.status(500).json({ message: error.message || "Unable to update product." }); } });
-app.delete("/api/admin/products/:id", adminAuth, async (req, res) => { if (SOURCE_OVERRIDE_IDS.has(req.params.id)) return res.status(409).json({ message: "This source duplicate is intentionally overridden by the FARMTEK09 catalogue." }); const products = await readCatalogue(); const next = products.filter((x) => x.id !== req.params.id); if (next.length === products.length) return res.status(404).json({ message: "Product not found." }); await writeCatalogue(next); res.json({ ok: true }); });
+app.post("/api/admin/products", adminAuth, async (req, res) => { try { const p = req.body || {}; const products = await readCatalogue(); const id = String(p.id || `${Date.now()}-${String(p.name || "product").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`); if (!p.name || !p.category) return res.status(400).json({ message: "Name and category are required." }); if (SOURCE_OVERRIDE_IDS.has(id)) return res.status(409).json({ message: "That product is reserved for the FARMTEK09 catalogue override." }); if (products.some((x) => x.id === id)) return res.status(409).json({ message: "Product ID already exists." }); const product = { id, name: normalizeText(p.name, 140), category: normalizeText(p.category, 80), price: p.price == null || p.price === "" ? null : Number(p.price), stock: p.stock == null || p.stock === "" ? null : Number(p.stock), blurb: normalizeText(p.blurb, 300), image: normalizeText(p.image, 500), featured: Boolean(p.featured), badge: normalizeText(p.badge, 40) }; if (product.price != null && (!Number.isFinite(product.price) || product.price < 0)) return res.status(400).json({ message: "Price must be a valid number or blank." }); if (product.stock != null && (!Number.isInteger(product.stock) || product.stock < 0)) return res.status(400).json({ message: "Stock must be a whole number or blank." }); products.push(product); await writeCatalogue(products, "Admin added " + product.name); res.status(201).json({ ...product, persistence: "github" }); } catch (error) { res.status(500).json({ message: error.message || "Unable to save product." }); } });
+app.put("/api/admin/products/:id", adminAuth, async (req, res) => { try { if (SOURCE_OVERRIDE_IDS.has(req.params.id)) return res.status(409).json({ message: "This source duplicate is intentionally overridden by the FARMTEK09 catalogue." }); const products = await readCatalogue(); const i = products.findIndex((x) => x.id === req.params.id); if (i < 0) return res.status(404).json({ message: "Product not found." }); const p = req.body || {}; const next = { ...products[i], name: normalizeText(p.name || products[i].name, 140), category: normalizeText(p.category || products[i].category, 80), price: p.price == null || p.price === "" ? null : Number(p.price), stock: p.stock == null || p.stock === "" ? null : Number(p.stock), blurb: normalizeText(p.blurb ?? products[i].blurb ?? "", 300), image: normalizeText(p.image ?? products[i].image ?? "", 500), featured: p.featured == null ? Boolean(products[i].featured) : Boolean(p.featured), badge: normalizeText(p.badge ?? products[i].badge ?? "", 40) }; if (next.price != null && (!Number.isFinite(next.price) || next.price < 0)) return res.status(400).json({ message: "Price must be a valid number or blank." }); if (next.stock != null && (!Number.isInteger(next.stock) || next.stock < 0)) return res.status(400).json({ message: "Stock must be a whole number or blank." }); products[i] = next; await writeCatalogue(products, "Admin updated " + next.name); res.json({ ...next, persistence: "github" }); } catch (error) { res.status(500).json({ message: error.message || "Unable to update product." }); } });
+app.delete("/api/admin/products/:id", adminAuth, async (req, res) => { if (SOURCE_OVERRIDE_IDS.has(req.params.id)) return res.status(409).json({ message: "This source duplicate is intentionally overridden by the FARMTEK09 catalogue." }); const products = await readCatalogue(); const next = products.filter((x) => x.id !== req.params.id); if (next.length === products.length) return res.status(404).json({ message: "Product not found." }); await writeCatalogue(next, "Admin removed " + req.params.id); res.json({ ok: true, persistence: "github" }); });
 app.get("/api/admin/orders", adminAuth, async (req, res) => { const orders = await readOrders(); const status = normalizeText(req.query.status, 30); res.json({ orders: status ? orders.filter((o) => o.status === status) : orders }); });
 app.patch("/api/admin/orders/:id", adminAuth, async (req, res) => { const orders = await readOrders(); const order = orders.find((o) => o.id === req.params.id); if (!order) return res.status(404).json({ message: "Order not found." }); const allowed = ["new","awaiting_payment","paid","preparing","ready","dispatched","completed","cancelled"]; const nextStatus = normalizeText(req.body?.status, 30); if (!allowed.includes(nextStatus)) return res.status(400).json({ message: "Invalid order status." }); const at = new Date().toISOString(); order.status = nextStatus; order.updatedAt = at; order.timeline = Array.isArray(order.timeline) ? order.timeline : []; order.timeline.push({ status: nextStatus, at, note: normalizeText(req.body?.note, 200) }); if (nextStatus === "cancelled" && order.stockDeducted) { const catalogue = await readCatalogue(); for (const item of order.items) { const product = catalogue.find((p) => p.id === item.productId); if (product && product.stock != null) product.stock = Number(product.stock) + Number(item.quantity); } order.stockDeducted = false; await writeCatalogue(catalogue); } await writeOrders(orders); res.json(publicOrder(order)); });
 app.get("/api/admin/stats", adminAuth, async (_req, res) => { const [orders, products] = await Promise.all([readOrders(), readCatalogue()]); const paid = orders.filter((o) => o.paymentStatus === "paid"); const revenue = paid.reduce((sum, o) => sum + Number(o.total || 0), 0); const customers = new Set(orders.map((o) => o.phone).filter(Boolean)); const lowStock = products.filter((p) => p.stock != null && Number(p.stock) > 0 && Number(p.stock) <= 5).length; const outOfStock = products.filter((p) => p.stock != null && Number(p.stock) <= 0).length; const byStatus = orders.reduce((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {}); res.json({ products: products.length, orders: orders.length, paidOrders: paid.length, revenue, customers: customers.size, lowStock, outOfStock, byStatus }); });

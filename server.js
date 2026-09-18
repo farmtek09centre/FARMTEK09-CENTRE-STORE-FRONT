@@ -107,7 +107,27 @@ async function applySuccessfulPayment(orderId, transaction) {
   await writeCatalogue(catalogue); await writeOrders(orders);
 }
 
-app.get("/api/catalogue", async (_req, res) => { try { res.json(await readCatalogue()); } catch { res.status(500).json({ message: "Catalogue unavailable." }); } });
+app.get("/api/catalogue", async (_req, res) => {
+  try {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    res.json(await readCatalogue());
+  } catch {
+    res.status(500).json({ message: "Catalogue unavailable." });
+  }
+});
+app.get("/api/catalogue-version", async (_req, res) => {
+  try {
+    const stat = await fs.stat(CATALOGUE_FILE);
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    res.json({ version: `${stat.mtimeMs}-${stat.size}` });
+  } catch {
+    res.status(500).json({ message: "Catalogue version unavailable." });
+  }
+});
 app.get("/api/payment-config", (_req, res) => res.json({ storeName: STORE_NAME, whatsappNumber: WHATSAPP_NUMBER, mpesaBusinessNumber: PAYBILL_BUSINESS, mpesaAccountNumber: PAYBILL_ACCOUNT, delivery: { collectionAvailable: true, deliveryAvailable: true, flatFeeKes: Number.isFinite(DELIVERY_FLAT_FEE) ? DELIVERY_FLAT_FEE : null, deliveryNote: Number.isFinite(DELIVERY_FLAT_FEE) ? "Flat delivery fee applies." : "Delivery charge is confirmed with the customer before dispatch." } }));
 
 app.post("/api/orders", async (req, res) => {

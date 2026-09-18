@@ -228,6 +228,7 @@ async function init() {
     renderFeatured();
     renderShelf();
     renderProducts();
+    await syncCatalogue();
     document.dispatchEvent(new CustomEvent("catalogue:ready", { detail: products }));
   } catch (error) {
     console.error(error);
